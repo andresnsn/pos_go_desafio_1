@@ -9,6 +9,7 @@ import (
 	"os"
 	"pos_go_desafio_1/internal/domain"
 	"pos_go_desafio_1/pkg/database"
+	"strconv"
 	"time"
 )
 
@@ -39,12 +40,11 @@ func getCotation() (*domain.USDBRL, error) {
 		fmt.Println("Erro ao converter para JSON: ", err)
 	}
 
-	ctxDb, cancelDb := context.WithTimeout(context.Background(), 10*time.Millisecond)
-	defer cancelDb()
-
 	db := database.NewDb()
 
-	err = db.Save(ctxDb, usdbrl_response.USDBRL)
+	usdbrl_response.USDBRL.ServerTimeStamp = strconv.FormatInt(time.Now().UnixNano(), 10)
+
+	db.Save(usdbrl_response.USDBRL)
 
 	if err != nil {
 		fmt.Println("Erro ao salvar no banco de dados: ", err)
@@ -60,14 +60,22 @@ func clientReqHandler(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		http.Error(w, "Erro ao buscar dados", http.StatusInternalServerError)
+		return
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(data)
+
+	response := struct {
+		Bid string `json:"bid"`
+	}{
+		Bid: data.Bid,
+	}
+
+	json.NewEncoder(w).Encode(response)
 }
 
 func main() {
-	http.HandleFunc("/", clientReqHandler)
+	http.HandleFunc("/cotacao", clientReqHandler)
 
 	fmt.Println("Servidor rodando localmente na porta 8080")
 
